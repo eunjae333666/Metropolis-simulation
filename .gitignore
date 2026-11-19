@@ -1,0 +1,23 @@
+# Virtual environments and local configuration
+.venv/
+venv/
+.env
+.env.*
+
+# Python, Numba, and test caches
+__pycache__/
+*.py[cod]
+*.nb[ci]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated experiment output
+/results/
+/quick_results/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
