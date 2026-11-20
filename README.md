@@ -21,13 +21,13 @@ uv pip install -r requirements.txt
 uv run python main.py
 ```
 
-`main.py` 상단에서 격자 한 변 `L`, 온도 `T`, 초기 배열 `INITIALIZATION`, 시드 `SEED` 및 측정 간격을 바꿀 수 있습니다. 격자, 스핀당 에너지와 자화의 변화를 그래프로 보여줍니다. 1 Monte Carlo sweep은 스핀 개수 $L^2$만큼 뒤집기를 시도한 단위입니다.
+`main.py` 상단에서 격자 한 변 `L`, 온도 `T`, 초기 배열 `INITIALIZATION`, 시드 `SEED` 및 측정 간격을 바꿀 수 있습니다. 격자, 스핀당 에너지와 자화의 변화를 그래프로 보여줍니다. Monte Carlo sweep 한 번은 스핀 개수($L^2$)만큼 뒤집기를 시도한 단위입니다.
 
 ## Experiments
 
 ### Ordered vs Random Initial State
 
-같은 온도에서 **모든 스핀이 위를 향하는 격자(Ordered)** 와 **각 스핀을 위·아래로 무작위 배치한 격자(Random)** 를 비교합니다. 시점 $t$마다 각 초기조건의 독립 실행에서 스핀당 에너지 $E/N$를 평균하고, 두 평균 차이의 절댓값를 계산합니다.
+같은 온도에서 **Ordered**(모든 스핀이 위를 향하는 격자)와 **Random**(각 스핀을 위·아래로 무작위 배치한 격자)을 비교합니다. 시점 $t$마다 초기조건별로 스핀당 에너지($E/N$)를 평균하고, 두 평균 차이의 절댓값을 계산합니다.
 
 $$
 D_E(t) =
@@ -109,21 +109,14 @@ uv run python -m experiments.compare_initial_states \
 
 ## Schroeder Problems
 
-### **Problem 8.29** — Correlation Function and Correlation Length
+### Problem 8.29 — Correlation Function and Correlation Length
 
-거리 $r$만큼 떨어진 spin $s_i,s_j\in\{-1,+1\}$에 대해 correlation function을 다음과 같이 정의합니다.
-
-$$
-c(r)=\overline{s_i s_j}-\bar{s}^{\,2}
-$$
-
-여기서 $\overline{s_i s_j}$는 거리 $r$만큼 떨어진 spin pair들의 $s_i s_j$ 평균이고, $\bar{s}$는 lattice 전체 spin의 평균입니다. 코드에서는 $\overline{s_i s_j}$를 따로 $C(r)$로 두어
+거리 $r$만큼 떨어진 두 스핀 $s_i, s_j\in\{-1,+1\}$의 곱을 평균한 값이 원시 상관 $C(r)$입니다. 여기서 평균 자화 $\bar{s}$의 제곱을 빼면 연결 상관 $c(r)$이 됩니다.
 
 $$
-C(r)=\overline{s_i s_j},\qquad c(r)=C(r)-\bar{s}^{\,2}
+C(r)=\overline{s_i s_j},\qquad
+c(r)=\overline{s_i s_j}-\bar{s_i}^{\,2}
 $$
-
-로 계산합니다.
 
 #### (a) 한 lattice에서 거리별 correlation 측정
 
@@ -159,9 +152,92 @@ $$
 
 `correlation_semilog.png`에서는 correlation의 decay와 fitting 결과를, `correlation_length_vs_temperature.png`에서는 temperature에 따른 $\xi$의 변화를 확인할 수 있습니다. Critical temperature 근처에서는 $\xi$가 증가하지만, finite lattice에서는 lattice size의 영향을 받고 정확히 critical point에서는 correlation이 단순한 exponential 형태로 감소하지 않으므로 fitting 결과는 주의해서 해석해야 합니다.
 
-#### Axis와 radial 비교
+#### 현재 구현의 상관 길이 출력
 
-`--geometry axis`가 기본값이며 교재의 가로·세로 평균을 사용합니다. `--geometry radial`은 대각선을 포함한 모든 주기 변위를 사용합니다. 각 성분에 minimum image를 적용한 후 정수 $r^2=d_x^2+d_y^2$가 같은 변위끼리 평균하고, 표시할 때 $r=\sqrt{r^2}$로 바꿉니다. radial 곡선은 격자의 대각선 방향까지 포함해 최대 $\sqrt{2}\lfloor L/2\rfloor$까지 나옵니다. 기본 피팅 상한은 두 방식 모두 `L//4`입니다.
+기본 결과인 경험적 상관 길이 $\xi_{\rm emp}$는 연결 상관이 거리 0에서의 값의 $1/e$까지 처음 줄어드는 거리입니다.
+
+$$
+g(r)=\frac{c(r)}{c(0)},\qquad
+g(\xi_{\rm emp})=\frac1e
+$$
+
+`estimate_empirical_correlation_length()`는 이 기준을 처음 통과하는 이웃 측정점 두 개 사이를 선형 보간합니다. 마지막 거리 $r_{\max}$까지 기준에 도달하지 않으면 `xi_empirical`에는 $r_{\max}$를 기록하고 `xi_empirical_lower_bound=True`로 표시합니다. 이 행의 의미는 $\xi_{\rm emp}>r_{\max}$입니다. $c(0)$이 양의 유한값이 아니면 `xi_empirical_status`에서 이유를 확인할 수 있습니다.
+
+보조 분석으로 `fit_correlation_length()`가 $c(r)\approx Ae^{-r/\xi_{\rm exp}}$ 형태의 지수 피팅을 수행합니다. `--fit-r-min`과 `--fit-r-max`는 이 보조 피팅의 거리 범위를 조절합니다. 무한 격자의 임계점에서는 상관 길이가 발산하고 상관은 거듭제곱으로 감쇠합니다. 구현에서는 임계점의 보조 지수 피팅을 생략합니다. 유한 격자에서 측정한 $\xi_{\rm emp}$ 또는 그 하한은 임계점에서도 보고합니다. `normalized_correlation_vs_r.png`에서 교차점을, `correlation_semilog.png`에서 별도의 지수 피팅을 확인합니다.
+
+#### 실행 방법
+
+**기본 실행**
+
+```bash
+uv run python -m problems.problem_8_29
+```
+
+기본값은 교재의 가로·세로 방향을 평균하는 `axis`입니다. 거리 0은 계산에 포함되며, (a)의 막대그래프는 거리 1부터 표시합니다. 결과는 `results/problem_8_29/`에 저장합니다.
+
+**옵션을 바꿔 실행**
+
+```bash
+uv run python -m problems.problem_8_29 \
+  --temperatures 1.5 2.0 2.15 2.25 2.269 2.35 2.5 3.0 \
+  --L 40 \
+  --J 1 \
+  --runs 4 \
+  --burn-in 3000 \
+  --samples 500 \
+  --sample-spacing 10 \
+  --max-workers 10 \
+  --seed 42 \
+  --sector auto \
+  --fit-r-min 2 \
+  --geometry axis \
+  --correlation both \
+  --lattice-snapshots \
+  --output-dir results/problem_8_29 \
+  --no-show
+```
+
+| 옵션 | 바꾸는 값 |
+| --- | --- |
+| `--temperatures` | 실험할 온도 목록. 공백으로 구분합니다. |
+| `--L` | 격자 한 변의 스핀 수. `--L 40`은 40×40 격자입니다. |
+| `--J` | 이웃 스핀 사이의 결합 세기. 양수를 사용합니다. |
+| `--runs` | 온도별 독립 실행 수. `4`이면 온도마다 네 번 실행합니다. |
+| `--burn-in` | 측정을 시작하기 전 격자를 안정화하는 데 사용할 sweep 수. |
+| `--samples` | 독립 실행 한 번에 측정할 격자 수. |
+| `--sample-spacing` | 두 측정 사이의 sweep 수. |
+| `--max-workers` | 동시에 실행할 프로세스의 최대 수. `1`이면 순차 실행합니다. |
+| `--seed` | 결과를 재현할 때 사용하는 난수 시드. |
+| `--sector` | 평균 자화에 사용할 값. `signed`는 부호를 유지하고, `aligned`는 절댓값을 사용합니다. 기본값 `auto`는 임계점 아래에서 `aligned`, 임계점부터 `signed`를 사용합니다. |
+| `--fit-r-min` | 보조 지수 피팅에 사용할 최소 거리. 기본값은 `2`입니다. |
+| `--fit-r-max` | 보조 지수 피팅에 사용할 최대 거리. 지정하지 않으면 격자 크기에 따라 `L//4`로 정해집니다. |
+| `--geometry` | 거리별로 평균할 방향. `axis`는 가로·세로, `radial`은 모든 방향, `both`는 같은 격자에서 두 방식 모두 계산합니다. |
+| `--correlation` | 거리별 그래프에 표시할 상관. `connected`는 $c(r)$, `raw`는 $C(r)$, `both`는 둘 다 저장합니다. |
+| `--lattice-snapshots` | 대표 온도의 마지막 측정 격자도 그림으로 저장합니다. |
+| `--output-dir` | 그래프와 데이터 파일을 저장할 폴더. |
+| `--no-show` | 그래프 창을 띄우지 않고 파일을 저장합니다. |
+
+짧게 시험하려면 위 명령에서 `--L 24 --runs 2 --burn-in 500 --samples 100 --max-workers 2`에 해당하는 값을 바꿔 보세요.
+
+**결과 파일**
+
+| 파일 | 보는 법 |
+| --- | --- |
+| `snapshot_correlations.png` | 측정 시점별로 한 격자의 연결 상관을 막대그래프로 비교합니다. |
+| `correlation_vs_r.png` | 온도별 연결 상관 $c(r)$을 비교합니다. `--correlation raw`를 지정하면 원시 상관 $C(r)$을 표시합니다. |
+| `raw_correlation_vs_r.png` | `--correlation both`에서 추가로 저장하는 원시 상관 그래프입니다. |
+| `normalized_correlation_vs_r.png` | 정규화한 연결 상관과 `1/e` 기준선. 원은 교차점, 삼각형은 측정 범위의 끝까지 교차하지 않은 경우입니다. |
+| `correlation_semilog.png` | $\ln c(r)$와 실제 피팅에 사용한 점·직선을 확인합니다. |
+| `correlation_length_vs_temperature.png` | 온도별 경험적 상관 길이, 미교차 하한, 유효한 지수 피팅 결과를 함께 표시합니다. |
+| `geometry_comparison.png` | `--geometry both`에서 같은 표본으로 측정한 axis와 radial을 비교합니다. |
+| `raw_geometry_comparison.png` | `--geometry both --correlation both`에서 추가로 저장하는 원시 상관 비교 그래프입니다. |
+| `lattice_snapshots.png` | `--lattice-snapshots`에서 저장하는 대표 온도의 격자 그림입니다. |
+| `summary.csv` | 기본 결과 `xi_empirical`, 계산 상태와 하한 여부, 보조 결과 `xi_exp_*` 및 피팅 진단을 확인합니다. |
+| `correlation_data.npz` | 거리별 상관과 정규화한 곡선, 경험적 길이와 하한 플래그, 독립 실행별 피팅 결과를 저장합니다. |
+
+#### 확장 기능 — Axis와 radial 비교
+
+`--geometry axis`가 기본값이며 교재의 가로·세로 평균을 사용합니다. `--geometry radial`은 대각선을 포함한 모든 주기 변위를 사용합니다. 각 성분에 minimum image를 적용한 후 정수 $r^2=d_x^2+d_y^2$가 같은 변위끼리 평균하고, 표시할 때 $r=\sqrt{r^2}$로 바꿉니다. radial 곡선은 격자의 대각선 방향까지 포함해 최대 $\sqrt{2}\lfloor L/2\rfloor$까지 나옵니다. 보조 지수 피팅의 기본 상한은 두 방식 모두 `L//4`입니다.
 
 ```bash
 uv run python -m problems.problem_8_29 --geometry both --correlation both \

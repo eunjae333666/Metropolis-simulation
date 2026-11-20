@@ -161,34 +161,63 @@ def plot_correlation_fits(r, results):
     return figure
 
 
+def plot_normalized_correlations(r, results):
+    """Show the measured 1/e crossings and the endpoints of lower bounds."""
+    from analysis.correlation import ONE_OVER_E
+
+    figure, ax = plt.subplots(layout="constrained")
+    for result in results:
+        empirical = result.empirical
+        if not np.any(np.isfinite(empirical.normalized)):
+            continue
+        line, = ax.plot(r, empirical.normalized, label=f"T = {result.temperature:g}")
+        if empirical.lower_bound:
+            ax.plot(empirical.xi, empirical.normalized[-1], "^", color=line.get_color())
+        elif np.isfinite(empirical.xi):
+            ax.plot(empirical.xi, ONE_OVER_E, "o", color=line.get_color())
+    ax.axhline(ONE_OVER_E, color="0.4", linestyle="--", label=r"$1/e$ threshold")
+    ax.set(
+        xlabel="Distance r (lattice spacings)", ylabel=r"$c(r)/c(0)$",
+        title="Normalized connected correlations",
+    )
+    ax.legend(ncol=2 if len(results) > 5 else 1)
+    return figure
+
+
 def plot_correlation_lengths(results, critical_temperature):
-    """Plot pooled and independent-chain exponential length estimates."""
+    """Plot empirical lengths, lower bounds, and valid exponential fits."""
     figure, ax = plt.subplots(layout="constrained")
     ordered = sorted(results, key=lambda result: result.temperature)
     temperatures = np.array([result.temperature for result in ordered])
-    pooled = np.array([result.fit.xi for result in ordered])
-    means = np.array([result.xi_mean for result in ordered])
-    stds = np.array([result.xi_std for result in ordered])
-    ax.plot(temperatures, pooled, "o-", label="Pooled estimate")
-    valid_means = np.isfinite(means)
-    if valid_means.any():
-        line, = ax.plot(temperatures[valid_means], means[valid_means], "s", label="Chain mean ± SD")
-        with_spread = valid_means & np.isfinite(stds)
-        if with_spread.any():
-            ax.errorbar(
-                temperatures[with_spread], means[with_spread], yerr=stds[with_spread],
-                fmt="none", capsize=3, color=line.get_color(),
-            )
-    unavailable = temperatures[~np.isfinite(pooled)]
+    empirical = np.array([result.empirical.xi for result in ordered])
+    lower_bounds = np.array([result.empirical.lower_bound for result in ordered])
+    exponential = np.array([result.fit.xi for result in ordered])
+
+    points = np.where(lower_bounds, np.nan, empirical)
+    if np.any(np.isfinite(points)):
+        ax.plot(temperatures, points, "o-", color="C0", label="Empirical 1/e length")
+    if lower_bounds.any():
+        ax.scatter(
+            temperatures[lower_bounds], empirical[lower_bounds], marker="^", s=65,
+            facecolors="none", edgecolors="C0", label="Empirical lower bound",
+        )
+    valid_fits = np.isfinite(exponential)
+    if valid_fits.any():
+        ax.plot(
+            temperatures[valid_fits], exponential[valid_fits], "s", color="C1",
+            label="Exponential-fit estimate",
+        )
+    unavailable = temperatures[~np.isfinite(empirical)]
     if unavailable.size:
         ax.plot(
-            unavailable, np.full_like(unavailable, 0.04), marker="x", linestyle="none",
-            transform=ax.get_xaxis_transform(), color="0.45", label="No reported fit",
+            unavailable, np.full_like(unavailable, 0.04), "x", color="0.45",
+            transform=ax.get_xaxis_transform(), label="Unavailable empirical length",
         )
-    ax.axvline(critical_temperature, color="0.35", linestyle=":", label=r"$T_c$")
+
+    ax.axvline(critical_temperature, color="0.35", linestyle=":", label=r"$T_c$", zorder=1)
     ax.set(
         xlabel="Temperature T", ylabel=r"$\xi$ (lattice spacings)",
-        title="Exponential correlation length on a finite lattice",
+        title="Empirical 1/e correlation length on a finite lattice",
     )
     ax.legend()
     return figure
