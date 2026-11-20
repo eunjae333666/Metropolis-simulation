@@ -32,9 +32,7 @@ uv run python main.py
 $$
 D_E(t) =
 \left|
-\left\langle E/N\right\rangle_{\mathrm{random}}(t)
--
-\left\langle E/N\right\rangle_{\mathrm{ordered}}(t)
+\left\langle E/N\right\rangle_{\mathrm{random}}(t) - \left\langle E/N\right\rangle_{\mathrm{ordered}}(t)
 \right|
 $$
 
@@ -136,34 +134,39 @@ $$
 
 #### (c) 여러 lattice의 평균과 Correlation length
 
-System을 충분히 equilibrate한 뒤 여러 lattice configuration에서 correlation을 반복 측정하여 평균합니다. 이렇게 얻은 correlation function이 대략
+System을 충분히 equilibrate한 뒤 여러 lattice configuration에서 correlation을 반복해서 측정하고 평균합니다. 이렇게 얻은 connected correlation $c(r)$을 $c(0)$으로 normalize하여
 
 $$
-c(r)\approx Ae^{-r/\xi}
+\frac{c(r)}{c(0)}
 $$
 
-와 같이 감소한다고 보면, correlation length $\xi$는 correlation이 약 $1/e$배로 감소하는 characteristic distance입니다. 따라서
+를 계산합니다.
+
+Problem 8.29에서 correlation length $\xi$는 correlation이 처음 값의 $1/e$까지 감소하는 characteristic distance로 두었습니다. 따라서 코드에서는
 
 $$
-\ln c(r)\approx\ln A-\frac{r}{\xi}
+\frac{c(\xi)}{c(0)}=\frac{1}{e}
 $$
 
-이고, $\ln c(r)$을 $r$에 대해 fitting하여 $\xi$를 추정합니다.
+가 되는 거리를 simulation data에서 직접 찾습니다. Lattice에서는 측정 가능한 거리가 discrete하므로, $1/e$를 사이에 두는 두 data point 사이를 linear interpolation하여 empirical correlation length $\xi$를 구합니다.
 
-`correlation_semilog.png`에서는 correlation의 decay와 fitting 결과를, `correlation_length_vs_temperature.png`에서는 temperature에 따른 $\xi$의 변화를 확인할 수 있습니다. Critical temperature 근처에서는 $\xi$가 증가하지만, finite lattice에서는 lattice size의 영향을 받고 정확히 critical point에서는 correlation이 단순한 exponential 형태로 감소하지 않으므로 fitting 결과는 주의해서 해석해야 합니다.
+`normalized_correlation_vs_r.png`에서는 각 temperature에 대한 $c(r)/c(0)$과 $1/e$ 기준선을 함께 표시하여 $\xi$가 결정되는 위치를 직접 확인할 수 있습니다. `correlation_length_vs_temperature.png`에서는 이렇게 구한 empirical correlation length를 temperature에 따라 비교합니다.
 
-#### 현재 구현의 상관 길이 출력
+Critical temperature $T_c$ 근처에서는 correlation이 먼 거리까지 유지되므로 $\xi$가 크게 증가합니다. 이 계산은 특정한 decay function을 가정하지 않고 finite lattice에서 실제로 측정된 correlation으로부터 직접 $\xi$를 구한 것입니다. 만약 측정한 최대 거리까지도 $c(r)/c(0)>1/e$라면 정확한 crossing을 정할 수 없으므로, 해당 최대 거리를 correlation length의 lower bound로 기록합니다.
 
-기본 결과인 경험적 상관 길이 $\xi_{\rm emp}$는 연결 상관이 거리 0에서의 값의 $1/e$까지 처음 줄어드는 거리입니다.
+추가적인 비교를 위해
 
 $$
-g(r)=\frac{c(r)}{c(0)},\qquad
-g(\xi_{\rm emp})=\frac1e
+c(r)\approx Ae^{-r/\xi_{\rm exp}}
 $$
 
-`estimate_empirical_correlation_length()`는 이 기준을 처음 통과하는 이웃 측정점 두 개 사이를 선형 보간합니다. 마지막 거리 $r_{\max}$까지 기준에 도달하지 않으면 `xi_empirical`에는 $r_{\max}$를 기록하고 `xi_empirical_lower_bound=True`로 표시합니다. 이 행의 의미는 $\xi_{\rm emp}>r_{\max}$입니다. $c(0)$이 양의 유한값이 아니면 `xi_empirical_status`에서 이유를 확인할 수 있습니다.
+형태의 exponential fit도 수행할 수 있습니다. 이 경우
 
-보조 분석으로 `fit_correlation_length()`가 $c(r)\approx Ae^{-r/\xi_{\rm exp}}$ 형태의 지수 피팅을 수행합니다. `--fit-r-min`과 `--fit-r-max`는 이 보조 피팅의 거리 범위를 조절합니다. 무한 격자의 임계점에서는 상관 길이가 발산하고 상관은 거듭제곱으로 감쇠합니다. 구현에서는 임계점의 보조 지수 피팅을 생략합니다. 유한 격자에서 측정한 $\xi_{\rm emp}$ 또는 그 하한은 임계점에서도 보고합니다. `normalized_correlation_vs_r.png`에서 교차점을, `correlation_semilog.png`에서 별도의 지수 피팅을 확인합니다.
+$$
+\ln c(r)\approx \ln A-\frac{r}{\xi_{\rm exp}}
+$$
+
+를 이용하지만, 이는 empirical $\xi$를 구하기 위한 필수 과정이 아니라 correlation decay가 exponential 형태에 가까운 경우의 보조적인 분석입니다. 특히 critical point에서는 correlation이 단순한 exponential decay를 따르지 않으므로 exponential fit 결과보다 직접 측정한 empirical correlation length를 기본 결과로 사용합니다.
 
 #### 실행 방법
 
@@ -227,7 +230,7 @@ uv run python -m problems.problem_8_29 \
 | `correlation_vs_r.png` | 온도별 연결 상관 $c(r)$을 비교합니다. `--correlation raw`를 지정하면 원시 상관 $C(r)$을 표시합니다. |
 | `raw_correlation_vs_r.png` | `--correlation both`에서 추가로 저장하는 원시 상관 그래프입니다. |
 | `normalized_correlation_vs_r.png` | 정규화한 연결 상관과 `1/e` 기준선. 원은 교차점, 삼각형은 측정 범위의 끝까지 교차하지 않은 경우입니다. |
-| `correlation_semilog.png` | $\ln c(r)$와 실제 피팅에 사용한 점·직선을 확인합니다. |
+| `correlation_semilog.png` | 통과한 구간의 $\ln c(r)$ 측정점과 피팅 직선을 보여 줍니다. 통과한 피팅이 없으면 상태를 표시합니다. |
 | `correlation_length_vs_temperature.png` | 온도별 경험적 상관 길이, 미교차 하한, 유효한 지수 피팅 결과를 함께 표시합니다. |
 | `geometry_comparison.png` | `--geometry both`에서 같은 표본으로 측정한 axis와 radial을 비교합니다. |
 | `raw_geometry_comparison.png` | `--geometry both --correlation both`에서 추가로 저장하는 원시 상관 비교 그래프입니다. |

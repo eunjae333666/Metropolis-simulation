@@ -110,7 +110,7 @@ def _measure_chain(
 
 def _length_fit(r, values, L, *, r_min, r_max, standard_error=None):
     if r_max is not None and r_max < r_min:
-        return CorrelationFit(np.zeros(len(r), dtype=bool), "fewer than three usable distances")
+        return CorrelationFit(np.zeros(len(r), dtype=bool), "no distances inside fit bounds")
     fit = fit_correlation_length(r, values, r_min, r_max, standard_error=standard_error)
     if fit.status == "ok" and fit.xi >= L / 4:
         return replace(fit, xi=np.nan, status="decay length reaches L/4")
@@ -143,9 +143,10 @@ def _summarize_temperature(
         if fit.status == "ok":
             # Use the same signal window across chains. A chain with a shorter
             # positive range has no directly comparable estimate in that window.
+            first, last = r[fit.used][[0, -1]]
             for chain_pairs, chain_m in zip(pair_means, m):
                 chain_fit = _length_fit(
-                    r, chain_pairs - chain_m ** 2, L, r_min=fit_r_min, r_max=r[fit.used][-1],
+                    r, chain_pairs - chain_m ** 2, L, r_min=first, r_max=last,
                 )
                 if not np.array_equal(chain_fit.used, fit.used):
                     chain_fit = replace(chain_fit, xi=np.nan, status="signal window incomplete")

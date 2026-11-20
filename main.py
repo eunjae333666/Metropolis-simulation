@@ -11,13 +11,13 @@ from plotting import IsingPlotter
 from runner import SimulationRunner
 from sampler import MetropolisSampler
 
-L = 40
+L = 400
 J = 1.0
-T = 2.5
+T = 2.27
 INITIALIZATION = "random"
 SEED = 42
-BURN_IN_SWEEPS = 500
-MAX_SWEEPS = 2_000
+BURN_IN_SWEEPS = 50000
+MAX_SWEEPS = 2_00000
 SAMPLE_INTERVAL = 5
 
 

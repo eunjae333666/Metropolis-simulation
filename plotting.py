@@ -140,24 +140,26 @@ def plot_temperature_correlations(r, results, *, raw=False, geometry="axis"):
 
 
 def plot_correlation_fits(r, results):
-    """Show the positive connected signal and the points in accepted fits."""
+    """Show only the measured points and fitted lines in accepted windows."""
     figure, ax = plt.subplots(layout="constrained")
-    for result in results:
-        positive = (r > 0) & (result.connected > 0)
-        log_values = np.full(r.shape, np.nan)
-        log_values[positive] = np.log(result.connected[positive])
-        line, = ax.plot(r, log_values, label=f"T = {result.temperature:g}", alpha=0.65)
+    accepted = [result for result in results if result.fit.status == "ok"]
+    for result in accepted:
         fit = result.fit
-        if fit.status == "ok":
-            x = r[fit.used]
-            color = line.get_color()
-            ax.scatter(x, log_values[fit.used], color=color, s=14)
-            ax.plot(x, np.log(fit.amplitude) - x / fit.xi, "--", color=color)
+        x = r[fit.used]
+        points, = ax.plot(
+            x, np.log(result.connected[fit.used]), "o", markersize=4,
+            label=f"T = {result.temperature:g}",
+        )
+        ax.plot(x, np.log(fit.amplitude) - x / fit.xi, "--", color=points.get_color())
     ax.set(
         xlabel="Distance r (lattice spacings)", ylabel=r"$\ln c(r)$",
-        title="Connected correlations · points and dashed lines mark accepted fits",
+        title="Exponential diagnostics · accepted fit windows",
     )
-    ax.legend(ncol=2 if len(results) > 5 else 1)
+    if accepted:
+        ax.legend(ncol=2 if len(accepted) > 5 else 1)
+    else:
+        ax.text(0.5, 0.5, "No accepted exponential fits", transform=ax.transAxes,
+                ha="center", va="center")
     return figure
 
 

@@ -167,9 +167,10 @@ def fit_correlation_length(
     """Fit log(c) to a line on a contiguous, positive distance interval.
 
     With the default r=0…floor(L/2) grid, the default upper bound is L/4.
-    Stop at the first point outside the signal in the fit window. When
-    standard errors are available, a signal must exceed twice its error.
-    Reject short, flat, increasing, or poor fits and return NaN with a status.
+    Each point must be positive and finite and, when its standard error is
+    available, exceed twice that error. Search contiguous windows within
+    those constraints, favoring more points and then smaller distances.
+    Require at least three points, a negative slope, and the requested R².
     """
     r = np.asarray(r, dtype=float)
     correlation = np.asarray(correlation, dtype=float)
@@ -195,27 +196,47 @@ def fit_correlation_length(
         # NaN means uncertainty is unavailable, for example with a single chain.
         valid &= np.isnan(standard_error) | (correlation > 2 * standard_error)
 
-    candidates = np.flatnonzero((r > 0) & (r >= r_min) & (r <= r_max))
-    breaks = np.flatnonzero(~valid[candidates])
-    if breaks.size:
-        candidates = candidates[:breaks[0]]
+    in_bounds = (r > 0) & (r >= r_min) & (r <= r_max)
     used = np.zeros_like(r, dtype=bool)
-    used[candidates] = True
-    if candidates.size < 3:
+    if not in_bounds.any():
+        return CorrelationFit(used, "no distances inside fit bounds")
+
+    eligible = np.flatnonzero(in_bounds & valid)
+    blocks = np.split(eligible, np.flatnonzero(np.diff(eligible) > 1) + 1)
+    longest = max(blocks, key=len)
+    if len(longest) < 3:
+        used[longest] = True
         return CorrelationFit(used, "fewer than three usable distances")
 
-    x = r[used]
-    y = np.log(correlation[used])
-    centered_x = x - x.mean()
-    centered_y = y - y.mean()
-    slope = np.dot(centered_x, centered_y) / np.dot(centered_x, centered_x)
-    if slope >= 0 or np.allclose(y, y[0], rtol=0, atol=1e-12):
-        return CorrelationFit(used, "no decreasing signal")
-    residuals = centered_y - slope * centered_x
-    r_squared = float(1 - np.dot(residuals, residuals) / np.dot(centered_y, centered_y))
-    if r_squared < min_r_squared:
-        return CorrelationFit(used, "poor log-linear fit", r_squared=r_squared)
-    return CorrelationFit(
-        used, "ok", xi=float(-1 / slope),
-        amplitude=float(np.exp(y.mean() - slope * x.mean())), r_squared=r_squared,
-    )
+    log_values = np.zeros_like(r)
+    log_values[eligible] = np.log(correlation[eligible])
+    best_rejected = longest
+    best_r_squared = np.nan
+    for count in range(len(longest), 2, -1):
+        for block in blocks:
+            for start in range(len(block) - count + 1):
+                indices = block[start:start + count]
+                x = r[indices]
+                y = log_values[indices]
+                centered_x = x - x.mean()
+                centered_y = y - y.mean()
+                slope = np.dot(centered_x, centered_y) / np.dot(centered_x, centered_x)
+                if slope >= 0 or np.ptp(y) <= 1e-12:
+                    continue
+                residuals = centered_y - slope * centered_x
+                r_squared = float(
+                    1 - np.dot(residuals, residuals) / np.dot(centered_y, centered_y)
+                )
+                if r_squared >= min_r_squared:
+                    used[indices] = True
+                    return CorrelationFit(
+                        used, "ok", xi=float(-1 / slope),
+                        amplitude=float(np.exp(y.mean() - slope * x.mean())), r_squared=r_squared,
+                    )
+                if np.isnan(best_r_squared) or r_squared > best_r_squared:
+                    best_rejected = indices
+                    best_r_squared = r_squared
+
+    used[best_rejected] = True
+    status = "no decreasing signal" if np.isnan(best_r_squared) else "poor log-linear fit"
+    return CorrelationFit(used, status, r_squared=best_r_squared)

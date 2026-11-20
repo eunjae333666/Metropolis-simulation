@@ -74,7 +74,7 @@ def test_length_fit_recovers_a_known_exponential_on_requested_distances():
     np.testing.assert_array_equal(r[fit.used], np.arange(1, 7))
 
 
-def test_length_fit_stops_at_first_noisy_point_and_rejects_flat_curve():
+def test_length_fit_respects_noise_gaps_and_rejects_flat_curves():
     r = np.arange(11)
     exponential = np.exp(-r / 4)
     sem = np.zeros_like(exponential)
@@ -234,3 +234,77 @@ def test_empirical_and_exponential_lengths_are_saved_independently(tmp_path):
         assert data["xi_empirical"][1] == r[-1]
         assert np.isnan(data["xi_exp_pooled"][1])
         assert data["xi_exp_by_run"][0, 0] == pytest.approx(2)
+
+
+def test_length_fit_finds_later_contiguous_signal_after_a_noise_gap():
+    r = np.arange(11)
+    correlation = np.exp(-r / 2.5)
+    sem = np.zeros_like(correlation)
+    sem[3] = 1
+    fit = fit_correlation_length(r, correlation, r_max=8, standard_error=sem)
+    assert fit.status == "ok"
+    assert fit.xi == pytest.approx(2.5)
+    np.testing.assert_array_equal(r[fit.used], np.arange(4, 9))
+
+
+def test_length_fit_selects_a_log_linear_region_within_a_positive_block():
+    r = np.arange(10)
+    correlation = np.exp(-r / 3)
+    correlation[2] = 0.05
+    fit = fit_correlation_length(r, correlation, r_max=7)
+    assert fit.status == "ok"
+    assert fit.xi == pytest.approx(3)
+    np.testing.assert_array_equal(r[fit.used], np.arange(3, 8))
+
+
+def test_length_fit_distinguishes_empty_bounds_from_insufficient_signal():
+    r = np.arange(7)
+    fit = fit_correlation_length(r, np.exp(-r), r_min=7)
+    assert fit.status == "no distances inside fit bounds"
+    assert not fit.used.any()
+
+
+def test_chain_fits_use_both_ends_of_the_selected_pooled_window():
+    r = np.arange(9)
+    correlation = np.exp(-r / 2)
+    chains = []
+    for sign in (-1, 1):
+        pairs = correlation.copy()
+        pairs[2] += sign * 0.8 * correlation[2]
+        chains.append(ChainMeasurements(
+            pairs=pairs, signed_m=0, absolute_m=0, snapshot_correlations=None, spins=None,
+        ))
+    result = _summarize_temperature(
+        2.0, chains, r, L=24, J=1, sector="signed", fit_r_min=2, fit_r_max=6,
+    )
+    np.testing.assert_array_equal(r[result.fit.used], [3, 4, 5, 6])
+    assert result.valid_fits == 2
+    assert result.xi_exp_mean == pytest.approx(2)
+
+
+def test_semilog_plot_shows_only_accepted_fit_windows():
+    import matplotlib.pyplot as plt
+
+    from plotting import plot_correlation_fits
+
+    r = np.arange(9)
+    correlation = np.exp(-r / 2)
+    rejected = SimpleNamespace(
+        temperature=1.5, connected=correlation,
+        fit=fit_correlation_length(r, correlation, r_min=9),
+    )
+    accepted = SimpleNamespace(
+        temperature=2.0, connected=correlation,
+        fit=fit_correlation_length(r, correlation, r_max=5),
+    )
+    empty = plot_correlation_fits(r, [rejected])
+    mixed = plot_correlation_fits(r, [rejected, accepted])
+    try:
+        assert not empty.axes[0].lines
+        assert empty.axes[0].texts[0].get_text() == "No accepted exponential fits"
+        assert len(mixed.axes[0].lines) == 2
+        for line in mixed.axes[0].lines:
+            np.testing.assert_array_equal(line.get_xdata(), r[accepted.fit.used])
+    finally:
+        plt.close(empty)
+        plt.close(mixed)
