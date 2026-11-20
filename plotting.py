@@ -121,7 +121,7 @@ def _temperature_panels(temperatures, title):
     return figure, axes[:len(temperatures)]
 
 
-def plot_temperature_correlations(r, results, *, raw=False):
+def plot_temperature_correlations(r, results, *, raw=False, geometry="axis"):
     """Overlay temperature curves and shade one chain-based standard error."""
     figure, ax = plt.subplots(layout="constrained")
     for result in results:
@@ -133,7 +133,7 @@ def plot_temperature_correlations(r, results, *, raw=False):
     ax.axhline(0, color="0.55", linewidth=0.8)
     ax.set(
         xlabel="Distance r (lattice spacings)", ylabel=r"$C(r)$" if raw else r"$c(r)$",
-        title="Raw axis correlations" if raw else "Connected axis correlations",
+        title=f"{'Raw' if raw else 'Connected'} {geometry} correlations",
     )
     ax.legend(ncol=2 if len(results) > 5 else 1)
     return figure
@@ -200,11 +200,13 @@ def plot_snapshot_correlations(r, sweeps, results):
         len(results), len(sweeps), sharex=True, sharey="row", squeeze=False,
         figsize=(3.4 * len(sweeps), 2.3 * len(results)), layout="constrained",
     )
+    gaps = np.diff(r)
+    widths = 0.85 * np.minimum(gaps, np.r_[gaps[1:], gaps[-1:]])
     for row, result in enumerate(results):
         for column, sweep in enumerate(sweeps):
             ax = axes[row, column]
             values = result.chains[0].snapshot_correlations[column]
-            ax.bar(r[1:], values[1:], width=0.85)
+            ax.bar(r[1:], values[1:], width=widths)
             ax.axhline(0, color="0.55", linewidth=0.8)
             if row == 0:
                 ax.set_title(f"Sweep {sweep}")
@@ -224,4 +226,22 @@ def plot_lattice_snapshots(results):
     for ax, result in zip(axes[0], results):
         plotter.plot_spins(result.chains[0].spins, ax=ax)
         ax.set_title(f"T = {result.temperature:g}")
+    return figure
+
+
+def plot_geometry_comparison(axis_r, axis_results, radial_r, radial_results, *, raw=False):
+    """Compare the two geometries measured on the same configurations."""
+    kind = "Raw" if raw else "Connected"
+    figure, axes = _temperature_panels(
+        [result.temperature for result in axis_results], f"{kind} correlations by geometry",
+    )
+    ylabel = r"$C(r)$" if raw else r"$c(r)$"
+    for ax, axis, radial in zip(axes, axis_results, radial_results, strict=True):
+        axis_values = axis.raw if raw else axis.connected
+        radial_values = radial.raw if raw else radial.connected
+        ax.plot(axis_r, axis_values, "o--", markersize=3, label="Axis")
+        ax.plot(radial_r, radial_values, label="Radial")
+        ax.axhline(0, color="0.55", linewidth=0.8)
+        ax.set(xlabel="Distance r (lattice spacings)", ylabel=ylabel)
+    axes[0].legend()
     return figure
