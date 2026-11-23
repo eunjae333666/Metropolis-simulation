@@ -258,12 +258,7 @@ uv run python -m problems.problem_8_29 --geometry both --correlation both \
 $90\times90$ Ising lattice를 겹치지 않는 $3\times3$ block으로 나누고, 각 block에서 다수인 spin 방향을 새로운 spin으로 정했습니다.
 
 $$
-S'_{IJ}
-=
-\operatorname{sign}
-\left(
-\sum_{(i,j)\in \mathrm{block}(I,J)} s_{ij}
-\right)
+S'_{IJ} =\operatorname{sign}\left(\sum_{(i,j)\in \mathrm{block}(I,J)} s_{ij}\right)
 $$
 
 따라서 한 번의 transformation으로 lattice size는
@@ -280,7 +275,7 @@ $$
 
 Block-spin transformation 이후의 lattice를 여러 temperature에서 얻은 original $30\times30$ lattice와 비교하여, 가장 비슷한 temperature를 transformed temperature $T'$로 정했습니다.
 
-비교에는 lattice의 평균 spin 크기 $|\bar{s}|$와 Problem 8.29에서 사용한 correlation function을 사용했습니다.
+비교에는 lattice의 평균 spin 크기 $|\bar{s}|$와 Problem 8.29에서 사용한 것과 같은 spin correlation $C(r)$을 사용했습니다.
 
 그 결과,
 
@@ -288,7 +283,7 @@ $$
 T<T_c \quad\Rightarrow\quad T'<T
 $$
 
-
+  
 
 $$
 T>T_c \quad\Rightarrow\quad T'>T
