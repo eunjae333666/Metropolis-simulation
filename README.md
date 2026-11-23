@@ -249,6 +249,70 @@ uv run python -m problems.problem_8_29 --geometry both --correlation both \
 
 `both`는 같은 lattice configuration에서 두 곡선을 계산합니다. axis 결과는 지정한 폴더에, radial 결과는 그 안의 `radial/`에 저장합니다. `geometry_comparison.png`에서 두 연결 상관을 비교하고, 위 예제처럼 `--correlation both`를 지정하면 `raw_geometry_comparison.png`도 생성됩니다.
 
+### Problem 8.32 — Block-Spin Transformation
+
+#### (a) 3×3 다수결 변환
+
+평형에 가까워진 격자를 겹치지 않는 $3\times3$ 블록으로 나누고, 각 블록에서는 다수인 스핀 방향 하나를 남깁니다.
+
+$$
+S'_{IJ}=\operatorname{sign}\left(\sum_{(i,j)\in\mathrm{block}(I,J)}s_{ij}\right)
+$$
+
+기본 $90\times90$ 격자는 $30\times30$으로 줄어듭니다. `block_spin_snapshots.png`에서 같은 시점의 원본과 결과를 나란히 봅니다.
+
+#### (b) 변환 온도 $T'$ 추정
+
+각 기준 온도에서 독립적으로 시뮬레이션한 원본 격자에서, 변환 격자와 같은 크기의 패치를 무작위로 뽑습니다. 두 격자에서 모두 스핀당 절대 자화 $\lvert m\rvert$와 가로·세로 원시 상관 $C(1),\ldots,C(5)$를 측정합니다. 상관을 계산할 때는 패치의 양 끝을 서로 연결하지 않습니다.
+
+각 특징의 차이를 전체 기준 표본에서 측정한 표준편차로 나눈 뒤, 변환 표본의 평균과 기준 온도별 평균 사이의 유클리드 거리가 가장 작은 온도를 $T'$로 고릅니다. 기준 표본에서 변하지 않는 특징은 거리 계산에서 제외합니다. 이 $T'$는 선택한 특징과 기준 온도 격자에 한정된 **경험적 best matching temperature**입니다. 정확한 재규격화 온도를 정하려면 변환 후의 상호작용을 별도로 분석해야 합니다.
+
+#### (c) 온도 흐름
+
+화살표는 측정한 $T\to T'$를 표시합니다. $T'<T$는 낮은 온도 쪽, $T'>T$는 높은 온도 쪽이며, $\lvert T'-T\rvert$가 허용값 이내인 점을 고정점 후보로 표시합니다. 교재에서 반복 변환의 흐름은 임계점 아래에서 $0$ 쪽, 위에서 $\infty$ 쪽이며 $T_c$가 두 흐름을 가르는 고정점입니다.
+
+$$
+\frac{T_c}{J}=\frac{2}{\ln(1+\sqrt{2})}
+$$
+
+정확한 $T_c$는 그래프의 참고선입니다. 수치상 교차점은 유한 격자, 표본 수, 기준 온도 간격에 따라 달라집니다.
+
+#### 실행 방법
+
+```bash
+uv run python -m problems.problem_8_32 --no-show
+```
+
+옵션을 바꿔 실행하는 예입니다. 이 설정에서는 두 시점에서 $90\to30\to10$ 변환을 그리며, $T'$는 첫 번째 변환을 기준으로 계산합니다.
+
+```bash
+uv run python -m problems.problem_8_32 \
+  --L 90 --J 1 --temperatures 1.8 2.0 2.15 2.269 2.4 2.6 3.0 \
+  --reference-temperatures 1.0 1.3 1.6 1.9 2.1 2.2 2.25 2.269 2.32 2.4 2.5 2.65 2.8 3.0 3.4 4.0 5.0 8.0 12.0 \
+  --burn-in 3000 --samples 80 --sample-spacing 10 \
+  --runs 3 --max-workers 10 --seed 42 \
+  --snapshots 2 --block-levels 2 --fixed-point-tolerance 0.05 \
+  --output-dir results/problem_8_32 --no-show
+```
+
+| 옵션 | 바꾸는 값 |
+| --- | --- |
+| `--L`, `--J` | 원본 격자의 한 변과 양의 결합 세기. `L`은 6 이상이며 단계마다 3으로 나누어떨어져야 합니다. |
+| `--temperatures`, `--reference-temperatures` | 변환할 원본의 온도 목록과 $T'$를 고를 후보 온도 목록. |
+| `--burn-in`, `--samples`, `--sample-spacing` | 안정화에 사용할 sweep 수, 체인당 표본 수, 측정 간격. |
+| `--runs`, `--max-workers`, `--seed` | 온도와 표본 집단당 독립 체인 수, 병렬 작업 수, 난수 시드. |
+| `--snapshots`, `--block-levels` | 저장할 측정 시점 수와 시각화용 반복 변환 횟수. 기본값은 각각 1입니다. |
+| `--fixed-point-tolerance` | 고정점 후보의 $\lvert\Delta T\rvert$ 상한. 기본값은 $0.05J$입니다. |
+| `--output-dir`, `--no-show` | 저장 위치와 그래프 창 표시 여부. |
+
+| 파일 | 보는 법 |
+| --- | --- |
+| `block_spin_snapshots.png` | 원본과 다수결 변환. 측정 시점을 늘리면 번호가 붙은 PNG도 저장됩니다. |
+| `reference_patch_comparison.png` | 변환 격자와 추정한 $T'$의 원본 패치. |
+| `transformed_temperature.png`, `delta_temperature.png` | $T'=T$ 기준과의 비교와 $\Delta T=T'-T$. |
+| `rg_flow.png` | 온도 흐름 화살표, 후보 고정점, 정확한 $T_c$ 참고선. |
+| `summary.csv`, `block_spin_data.npz` | $T$, $T'$, $\Delta T$, 매칭 점수와 기준 온도 범위 끝에 도달했는지 여부. NPZ에는 표본별 특징, 모든 후보의 점수와 예시 격자도 저장합니다. |
+
 ## Project Structure
 
 ```text
