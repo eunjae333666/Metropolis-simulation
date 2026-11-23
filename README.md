@@ -249,33 +249,82 @@ uv run python -m problems.problem_8_29 --geometry both --correlation both \
 
 `both`는 같은 lattice configuration에서 두 곡선을 계산합니다. axis 결과는 지정한 폴더에, radial 결과는 그 안의 `radial/`에 저장합니다. `geometry_comparison.png`에서 두 연결 상관을 비교하고, 위 예제처럼 `--correlation both`를 지정하면 `raw_geometry_comparison.png`도 생성됩니다.
 
+---
+
 ### Problem 8.32 — Block-Spin Transformation
 
-#### (a) 3×3 다수결 변환
+#### (a) Block-spin transformation
 
-평형에 가까워진 격자를 겹치지 않는 $3\times3$ 블록으로 나누고, 각 블록에서는 다수인 스핀 방향 하나를 남깁니다.
-
-$$
-S'_{IJ}=\operatorname{sign}\left(\sum_{(i,j)\in\mathrm{block}(I,J)}s_{ij}\right)
-$$
-
-기본 $90\times90$ 격자는 $30\times30$으로 줄어듭니다. `block_spin_snapshots.png`에서 같은 시점의 원본과 결과를 나란히 봅니다.
-
-#### (b) 변환 온도 $T'$ 추정
-
-각 기준 온도에서 독립적으로 시뮬레이션한 원본 격자에서, 변환 격자와 같은 크기의 패치를 무작위로 뽑습니다. 두 격자에서 모두 스핀당 절대 자화 $\lvert m\rvert$와 가로·세로 원시 상관 $C(1),\ldots,C(5)$를 측정합니다. 상관을 계산할 때는 패치의 양 끝을 서로 연결하지 않습니다.
-
-각 특징의 차이를 전체 기준 표본에서 측정한 표준편차로 나눈 뒤, 변환 표본의 평균과 기준 온도별 평균 사이의 유클리드 거리가 가장 작은 온도를 $T'$로 고릅니다. 기준 표본에서 변하지 않는 특징은 거리 계산에서 제외합니다. 이 $T'$는 선택한 특징과 기준 온도 격자에 한정된 **경험적 best matching temperature**입니다. 정확한 재규격화 온도를 정하려면 변환 후의 상호작용을 별도로 분석해야 합니다.
-
-#### (c) 온도 흐름
-
-화살표는 측정한 $T\to T'$를 표시합니다. $T'<T$는 낮은 온도 쪽, $T'>T$는 높은 온도 쪽이며, $\lvert T'-T\rvert$가 허용값 이내인 점을 고정점 후보로 표시합니다. 교재에서 반복 변환의 흐름은 임계점 아래에서 $0$ 쪽, 위에서 $\infty$ 쪽이며 $T_c$가 두 흐름을 가르는 고정점입니다.
+$90\times90$ Ising lattice를 겹치지 않는 $3\times3$ block으로 나누고, 각 block에서 다수인 spin 방향을 새로운 spin으로 정했습니다.
 
 $$
-\frac{T_c}{J}=\frac{2}{\ln(1+\sqrt{2})}
+S'_{IJ}
+=
+\operatorname{sign}
+\left(
+\sum_{(i,j)\in \mathrm{block}(I,J)} s_{ij}
+\right)
 $$
 
-정확한 $T_c$는 그래프의 참고선입니다. 수치상 교차점은 유한 격자, 표본 수, 기준 온도 간격에 따라 달라집니다.
+따라서 한 번의 transformation으로 lattice size는
+
+$$
+90\times90 \rightarrow 30\times30
+$$
+
+으로 줄어듭니다.
+
+여러 temperature에서 original lattice와 block-spin transformed lattice를 비교했습니다.
+
+#### (b) Transformed temperature
+
+Block-spin transformation 이후의 lattice를 여러 temperature에서 얻은 original $30\times30$ lattice와 비교하여, 가장 비슷한 temperature를 transformed temperature $T'$로 정했습니다.
+
+비교에는 lattice의 평균 spin 크기 $|\bar{s}|$와 Problem 8.29에서 사용한 correlation function을 사용했습니다.
+
+그 결과,
+
+$$
+T<T_c \quad\Rightarrow\quad T'<T
+$$
+
+
+
+$$
+T>T_c \quad\Rightarrow\quad T'>T
+$$
+
+인 경향이 나타났습니다. Critical temperature 근처에서는 transformation 전후의 temperature가 거의 변하지 않았습니다.
+
+#### (c) Repeated block-spin transformation
+
+(b)의 결과에 따르면 block-spin transformation을 반복할 때
+
+$$
+T<T_c \rightarrow 0,
+$$
+
+$$
+T>T_c \rightarrow \infty,
+$$
+
+이며 critical temperature에서는
+
+$$
+T_c\rightarrow T_c
+$$
+
+가 됩니다.
+
+따라서 이 transformation의 세 fixed point는
+
+$$
+0,\qquad T_c,\qquad \infty
+$$
+
+입니다.
+
+$T_c$에서는 작은 scale의 정보를 제거해도 system의 statistical behavior가 거의 변하지 않으므로, critical behavior가 microscopic detail에 크게 의존하지 않는다는 것을 확인할 수 있습니다.
 
 #### 실행 방법
 
