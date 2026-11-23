@@ -257,9 +257,7 @@ uv run python -m problems.problem_8_29 --geometry both --correlation both \
 
 $90\times90$ Ising lattice를 겹치지 않는 $3\times3$ block으로 나누고, 각 block에서 다수인 spin 방향을 새로운 spin으로 정했습니다.
 
-$$
-S'_{IJ} =\operatorname{sign}\left(\sum_{(i,j)\in \mathrm{block}(I,J)} s_{ij}\right)
-$$
+
 
 따라서 한 번의 transformation으로 lattice size는
 
